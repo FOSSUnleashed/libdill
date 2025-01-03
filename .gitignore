@@ -2,6 +2,7 @@
 *
 !*.*
 
+/cscope*
 .deps/
 .libs/
 Makefile
