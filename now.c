@@ -24,7 +24,7 @@
 #include <sys/time.h>
 #include <time.h>
 
-#if defined(__x86_64__) || defined(__i386__)
+#if defined(USE_INTRISICS) && (defined(__x86_64__) || defined(__i386__))
 #include <x86intrin.h>
 #endif
 
@@ -82,7 +82,7 @@ static int64_t dill_now_(void) {
 }
 
 int64_t dill_now(void) {
-#if defined(__x86_64__) || defined(__i386__)
+#if defined(USE_INTRISICS) && (defined(__x86_64__) || defined(__i386__))
     /* On x86 platforms, rdtsc instruction can be used to quickly check time
        in form of CPU cycles. If less than 1M cycles have elapsed since the
        last dill_now_() call we assume it's still the same millisecond and return
@@ -109,7 +109,7 @@ int dill_ctx_now_init(struct dill_ctx_now *ctx) {
 #if defined __APPLE__
     mach_timebase_info(&ctx->mtid);
 #endif
-#if defined(__x86_64__) || defined(__i386__)
+#if defined(USE_INTRISICS) && (defined(__x86_64__) || defined(__i386__))
     ctx->last_time = dill_mnow();
     ctx->last_tsc = __rdtsc();
 #endif
