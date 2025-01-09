@@ -30,8 +30,10 @@
 #include <stdlib.h>
 
 #define DILL_DISABLE_RAW_NAMES
-#include "libdillimpl.h"
-#include "utils.h"
+#include <dill/core.h>
+#include <dill/util.h>
+#include <dill/tls.h>
+#include <dill/impl.h>
 
 #define DILL_TLS_BUFSIZE 2048
 
@@ -72,7 +74,7 @@ static void *dill_tls_hquery(struct dill_hvfs *hvfs, const void *type) {
     return NULL;
 }
 
-int dill_tls_attach_client_mem(int s, struct dill_tls_storage *mem,
+int dill_tls_attach_client_sni_mem(int s, const char * sni, struct dill_tls_storage *mem,
       int64_t deadline) {
     int err;
     if(dill_slow(!mem)) {err = EINVAL; goto error1;}
@@ -82,13 +84,20 @@ int dill_tls_attach_client_mem(int s, struct dill_tls_storage *mem,
     if(dill_slow(!q)) {err = errno; goto error1;}
     /* Create OpenSSL connection context. */
     dill_tls_init();
-    const SSL_METHOD *method = SSLv23_method();
+
+	const SSL_METHOD *method = TLS_client_method();
+
     if(dill_slow(!method)) {err = EFAULT; goto error1;}
     SSL_CTX *ctx = SSL_CTX_new(method);
     if(dill_slow(!ctx)) {err = EFAULT; goto error1;}
     /* Create OpenSSL connection object. */
     SSL *ssl = SSL_new(ctx);
     if(dill_slow(!ssl)) {err = EFAULT; goto error2;}
+
+	if (sni) {
+		SSL_set_tlsext_host_name(ssl, sni);
+	}
+
 	  SSL_set_connect_state(ssl);
     /* Create a BIO and attach it to the connection. */
     BIO *bio = dill_tls_new_cbio(mem);
@@ -135,11 +144,11 @@ error1:
     return -1;
 }
 
-int dill_tls_attach_client(int s, int64_t deadline) {
+int dill_tls_attach_client_sni(int s, const char * sni, int64_t deadline) {
     int err;
     struct dill_tls_sock *obj = malloc(sizeof(struct dill_tls_sock));
     if(dill_slow(!obj)) {err = ENOMEM; goto error1;}
-    s = dill_tls_attach_client_mem(s, (struct dill_tls_storage*)obj,
+    s = dill_tls_attach_client_sni_mem(s, sni, (struct dill_tls_storage*)obj,
         deadline);
     if(dill_slow(s < 0)) {err = errno; goto error2;}
     obj->mem = 0;
@@ -162,7 +171,9 @@ int dill_tls_attach_server_mem(int s, const char *cert, const char *pkey,
     if(dill_slow(!q)) {err = errno; goto error1;}
     /* Create OpenSSL connection context. */
     dill_tls_init();
-    const SSL_METHOD *method = SSLv23_server_method();
+
+	const SSL_METHOD *method = TLS_server_method();
+
     if(dill_slow(!method)) {err = EFAULT; goto error1;}
     SSL_CTX *ctx = SSL_CTX_new(method);
     if(dill_slow(!ctx)) {err = EFAULT; goto error1;}
@@ -453,6 +464,7 @@ static long dill_tls_cbio_ctrl(BIO *bio, int cmd, long larg, void *parg) {
         return 1;
     case BIO_CTRL_PUSH:
     case BIO_CTRL_POP:
+	case BIO_CTRL_EOF:
         return 0;
     default:
         dill_assert(0);
