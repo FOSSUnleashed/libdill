@@ -263,7 +263,7 @@ int dill_prologue(sigjmp_buf **jb, void **ptr, size_t len, int bndl,
     if(dill_slow(!bundle)) {err = errno; goto error2;}
     /* Allocate a stack. */
     struct dill_cr *cr;
-    size_t stacksz;
+    size_t stacksz = 0;
     if(!*ptr) {
         cr = (struct dill_cr*)dill_allocstack(&stacksz);
         if(dill_slow(!cr)) {err = errno; goto error2;}
@@ -510,8 +510,7 @@ static void dill_docancel(struct dill_cr *cr, int id, int err) {
     dill_assert(!cr->ready.next);
     /* Remove the clauses from endpoints' lists of waiting coroutines. */
     struct dill_slist *it;
-    for(it = dill_slist_next(&cr->clauses); it != &cr->clauses;
-          it = dill_slist_next(it)) {
+    for(it = dill_slist_next(&cr->clauses); it != &cr->clauses; it = dill_slist_next(it)) {
         struct dill_clause *cl = dill_cont(it, struct dill_clause, item);
         if(cl->cancel) cl->cancel(cl);
     }
@@ -519,6 +518,7 @@ static void dill_docancel(struct dill_cr *cr, int id, int err) {
     dill_resume(cr, id, err);
 }
 
+// Given a clause, unblock the coroutine the clause is blocking
 void dill_trigger(struct dill_clause *cl, int err) {
     dill_docancel(cl->cr, cl->id, err);
 }
