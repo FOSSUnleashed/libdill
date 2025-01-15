@@ -385,9 +385,13 @@ static ssize_t dill_ws_recvl_base(struct dill_msock_vfs *mvfs, int *flags,
     while(1) {
         struct dill_iolist iol_msg;
         uint8_t hdr1[2];
+	start:
         rc = dill_brecv(self->u, hdr1, sizeof(hdr1), deadline);
         if(dill_slow(rc < 0)) return -1;
-        if(hdr1[0] & 0x70) {errno = EPROTO; return -1;}
+        if(hdr1[0] & 0x70) {
+				printf("PROTO ERROR %02x %02x\n", hdr1[0], hdr1[1]);
+				errno = EPROTO; return -1;
+			}
         int opcode = hdr1[0] & 0x0f;
         /* TODO: Other opcodes. */
         switch(opcode) {
@@ -410,7 +414,16 @@ static ssize_t dill_ws_recvl_base(struct dill_msock_vfs *mvfs, int *flags,
             iol_msg.iol_rsvd = 0;
             self->indone = 1;
             break;
+			case 9:
+				if (0 == hdr1[1]) { // TODO: handle ping with a body
+					hdr1[0] = 0x8a; // FIN:PONG
+					rc = dill_bsend(self->u, hdr1, sizeof(hdr1), deadline);
+					if (-1 == rc) {errno = EPROTO; return -1;} // TODO: is this the correct errno value?
+					goto start;
+					break;
+				}
         default:
+				printf("PROTO ERROR %02x %02x\n", hdr1[0], hdr1[1]);
             errno = EPROTO;
             return -1;
         }
