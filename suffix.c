@@ -148,20 +148,25 @@ static ssize_t dill_suffix_mrecvl(struct dill_msock_vfs *mvfs,
     struct dill_suffix_sock *self = dill_cont(mvfs, struct dill_suffix_sock,
         mvfs);
     if(dill_slow(self->inerr)) {errno = ECONNRESET; return -1;}
+
     /* First fill in the temporary buffer. */
     struct dill_iolist iol = {self->buf, self->suffixlen, NULL, 0};
+    struct dill_iolist it = *first;
+
     int rc = self->uvfs->brecvl(self->uvfs, &iol, &iol, deadline);
+
     if(dill_slow(rc < 0)) {self->inerr = 1; return -1;}
+
     /* Read the input, character by character. */
     iol.iol_base = self->buf + self->suffixlen - 1;
     iol.iol_len = 1;
+
     size_t sz = 0;
-    struct dill_iolist it = *first;
     while(1) {
         /* Check for suffix. */
         if(memcmp(self->buf, self->suffix, self->suffixlen) == 0) break;
         /* Ignore empty iolist items. */
-        while(first->iol_len == 0) {
+        while(it.iol_len == 0) {
             if(!it.iol_next) {self->inerr = 1; errno = EMSGSIZE; return -1;}
             it = *it.iol_next;
         }
