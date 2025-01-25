@@ -152,6 +152,10 @@ int dill_bundle_wait(int h, int64_t deadline) {
 /*  Helpers.                                                                  */
 /******************************************************************************/
 
+void ** dill_cr_getdata(void) {
+	return &dill_getctx->cr.r->data;
+}
+
 static void dill_resume(struct dill_cr *cr, int id, int err) {
     struct dill_ctx_cr *ctx = &dill_getctx->cr;
     cr->id = id;

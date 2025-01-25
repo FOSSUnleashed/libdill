@@ -102,7 +102,10 @@ DILL_EXPORT int dill_fdout(int fd, int64_t deadline);
 DILL_EXPORT int64_t dill_now(void);
 DILL_EXPORT int dill_msleep(int64_t deadline);
 
+DILL_EXPORT void ** dill_cr_getdata(void);
+
 #if !defined DILL_DISABLE_RAW_NAMES
+#define cr_getdata dill_cr_getdata
 #define fdclean dill_fdclean
 #define fdin dill_fdin
 #define fdout dill_fdout

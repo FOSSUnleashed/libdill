@@ -71,6 +71,8 @@ struct dill_cr {
     /* When the coroutine handle is being closed, this points to the
        coroutine that is doing the hclose() call. */
     struct dill_cr *closer;
+	// User data pointer
+	void * data;
 #if defined DILL_VALGRIND
     /* Valgrind stack identifier. This way, valgrind knows which areas of
        memory are used as stacks, and so it doesn't produce spurious warnings.
@@ -88,6 +90,7 @@ struct dill_cr {
    benefit of a minor optimization). */
 } __attribute__((aligned(16)));
 
+// SINGLETON! &dill_getctx->cr
 struct dill_ctx_cr {
     /* Currently running coroutine. */
     struct dill_cr *r;
