@@ -81,10 +81,9 @@ static int dill_ipaddr_ipany(struct dill_ipaddr *addr, int port, int mode)
 }
 
 /* Convert literal IPv4 address to a binary one. */
-static int dill_ipaddr_ipv4_literal(struct dill_ipaddr *addr, const char *name,
-      int port) {
+int dill_ipaddr_ipv4_literal(struct dill_ipaddr *addr, const char *name, int port) {
     struct sockaddr_in *ipv4 = (struct sockaddr_in*)addr;
-    int rc = inet_pton(AF_INET, name, &ipv4->sin_addr);
+    int rc = inet_aton(name, &ipv4->sin_addr);
     dill_assert(rc >= 0);
     if(dill_slow(rc != 1)) {errno = EINVAL; return -1;}
     ipv4->sin_family = AF_INET;
@@ -96,8 +95,7 @@ static int dill_ipaddr_ipv4_literal(struct dill_ipaddr *addr, const char *name,
 }
 
 /* Convert literal IPv6 address to a binary one. */
-static int dill_ipaddr_ipv6_literal(struct dill_ipaddr *addr, const char *name,
-      int port) {
+int dill_ipaddr_ipv6_literal(struct dill_ipaddr *addr, const char *name, int port) {
     struct sockaddr_in6 *ipv6 = (struct sockaddr_in6*)addr;
     int rc = inet_pton(AF_INET6, name, &ipv6->sin6_addr);
     dill_assert(rc >= 0);
