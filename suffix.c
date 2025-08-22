@@ -185,6 +185,26 @@ static ssize_t dill_suffix_mrecvl(struct dill_msock_vfs *mvfs,
     return sz;
 }
 
+int dill_suffix_extractl(int h, struct dill_iolist *first, struct dill_iolist *last, int64_t deadline) {
+	struct dill_suffix_sock *self = dill_hquery(h, dill_suffix_type);
+
+	if (NULL == self) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	return self->uvfs->brecvl(self->uvfs, first, last, deadline);
+}
+
+int dill_suffix_extract(int h, uint8_t *buf, size_t len, int64_t deadline) {
+	struct dill_iolist iol = {
+		.iol_base	= buf
+		,.iol_len	= len
+	};
+
+	return dill_suffix_extractl(h, &iol, &iol, deadline);
+}
+
 static void dill_suffix_hclose(struct dill_hvfs *hvfs) {
     struct dill_suffix_sock *self = (struct dill_suffix_sock*)hvfs;
     if(dill_fast(self->u >= 0)) {

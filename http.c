@@ -45,7 +45,7 @@ struct dill_http_sock {
     unsigned int mem : 1;
     struct dill_suffix_storage suffix_mem;
     struct dill_term_storage term_mem;
-    char rxbuf[1024];
+    char rxbuf[1 << 13];
 };
 
 DILL_CHECK_STORAGE(dill_http_sock, dill_http_storage)
@@ -120,6 +120,18 @@ error:
     if(!obj->mem) free(obj);
     errno = err;
     return u;
+}
+
+int dill_http_recv(int s, const char *msg, size_t sz, int64_t deadline) {
+    struct dill_http_sock *obj = dill_hquery(s, dill_http_type);
+
+	return dill_mrecv(obj->u, msg, sz, deadline);
+}
+
+int dill_http_send(int s, const char *msg, size_t sz, int64_t deadline) {
+    struct dill_http_sock *obj = dill_hquery(s, dill_http_type);
+
+	return dill_msend(obj->u, msg, sz, deadline);
 }
 
 int dill_http_sendrequest(int s, const char *command, const char *resource,

@@ -28,7 +28,7 @@
 #include <string.h>
 
 #define DILL_DISABLE_RAW_NAMES
-#include <libdillimpl.h>
+#include "libdillimpl.h"
 #include "iol.h"
 #include "utils.h"
 
@@ -174,11 +174,19 @@ static ssize_t dill_term_mrecvl(struct dill_msock_vfs *mvfs,
         }
         return sz;
     }
-    struct dill_iolist trimmed = {0};
-    int rc = dill_ioltrim(first, self->len, &trimmed);
+
     uint8_t buf[self->len];
-    struct dill_iolist iol = {buf, self->len, rc < 0 ? NULL : &trimmed, 0}; 
+    struct dill_iolist trimmed = {0};
+    struct dill_iolist iol = {buf, self->len, NULL, 0};
+
+    int rc = dill_ioltrim(first, self->len, &trimmed);
+
+	if (0 <= rc) {
+		iol.iol_next = &trimmed;
+	}
+
     ssize_t sz = dill_mrecvl(self->u, &iol, rc < 0 ? &iol : last, deadline);
+
     if(dill_slow(sz < 0)) return -1;
     if(dill_slow(sz == self->len &&
           dill_slow(memcmp(self->buf, buf, self->len) == 0))) {

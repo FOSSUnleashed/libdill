@@ -27,11 +27,11 @@
 #include <stdint.h>
 
 struct dill_rbtree_item {
-    int red;
+    int64_t val;
     struct dill_rbtree_item *left;
     struct dill_rbtree_item *right;
     struct dill_rbtree_item *up;
-    int64_t val;
+    int red;
 };
 
 struct dill_rbtree {

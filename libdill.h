@@ -683,6 +683,8 @@ DILL_EXPORT int dill_suffix_attach_mem(
 DILL_EXPORT int dill_suffix_detach(
     int s,
     int64_t deadline);
+DILL_EXPORT int dill_suffix_extractl(int h, struct dill_iolist *first, struct dill_iolist *last, int64_t deadline);
+DILL_EXPORT int dill_suffix_extract(int h, uint8_t *buf, size_t len, int64_t deadline);
 
 #if !defined DILL_DISABLE_RAW_NAMES
 #define suffix_storage dill_suffix_storage
@@ -690,6 +692,8 @@ DILL_EXPORT int dill_suffix_detach(
 #define suffix_attach_mem dill_suffix_attach_mem
 #define suffix_detach dill_suffix_detach
 #endif
+
+struct dill_file_storage {char _[72];} DILL_ALIGN;
 
 /******************************************************************************/
 /*  UDP protocol.                                                             */
@@ -742,7 +746,7 @@ DILL_EXPORT ssize_t dill_udp_recvl(
 /*  HTTP                                                                      */
 /******************************************************************************/
 
-struct dill_http_storage {char _[1296];} DILL_ALIGN;
+struct dill_http_storage {char _[1296 + (1 << 13) - (1 << 10)];} DILL_ALIGN;
 
 DILL_EXPORT int dill_http_attach(
     int s);
@@ -789,6 +793,8 @@ DILL_EXPORT int dill_http_recvfield(
     char *value,
     size_t valuelen,
     int64_t deadline);
+int dill_http_recv(int s, const char *msg, size_t sz, int64_t deadline);
+int dill_http_send(int s, const char *msg, size_t sz, int64_t deadline);
 
 #if !defined DILL_DISABLE_RAW_NAMES
 #define http_storage dill_http_storage
@@ -802,6 +808,8 @@ DILL_EXPORT int dill_http_recvfield(
 #define http_recvstatus dill_http_recvstatus
 #define http_sendfield dill_http_sendfield
 #define http_recvfield dill_http_recvfield
+#define http_send dill_http_send
+#define http_recv dill_http_recv
 #endif
 
 #if !defined DILL_DISABLE_TLS

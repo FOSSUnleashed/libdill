@@ -121,6 +121,7 @@ static void dill_bundle_close(struct dill_hvfs *vfs) {
     struct dill_bundle *self = (struct dill_bundle*)vfs;
     struct dill_list *it = &self->crs;
     for(it = self->crs.next; it != &self->crs; it = dill_list_next(it)) {
+			// abuse of location of next pointer
         struct dill_cr *cr = dill_cont(it, struct dill_cr, bundle);
         dill_cr_close(&cr->vfs);
     }
@@ -156,6 +157,7 @@ void ** dill_cr_getdata(void) {
 	return &dill_getctx->cr.r->data;
 }
 
+// Adding provided coroutine into the ready queue of the context
 static void dill_resume(struct dill_cr *cr, int id, int err) {
     struct dill_ctx_cr *ctx = &dill_getctx->cr;
     cr->id = id;
@@ -163,6 +165,7 @@ static void dill_resume(struct dill_cr *cr, int id, int err) {
     dill_qlist_push(&ctx->ready, &cr->ready);
 }
 
+// 0 if we can block -- -1 if either no_block flags are set -- of running coroutine
 int dill_canblock(void) {
     struct dill_ctx_cr *ctx = &dill_getctx->cr;
     if(dill_slow(ctx->r->no_blocking1 || ctx->r->no_blocking2)) {
@@ -170,6 +173,7 @@ int dill_canblock(void) {
     return 0;
 }
 
+// set value of second no_block flag on the running coroutine
 int dill_no_blocking(int val) {
     struct dill_ctx_cr *ctx = &dill_getctx->cr;
     int old = ctx->r->no_blocking2;
@@ -192,8 +196,10 @@ int dill_ctx_cr_init(struct dill_ctx_cr *ctx) {
     ctx->last_poll = dill_mnow();
     /* Initialize the main coroutine. */
     memset(&ctx->main, 0, sizeof(ctx->main));
-    ctx->main.ready.next = NULL;
-    dill_slist_init(&ctx->main.clauses);
+	//dill_slist_init(&ctx->main.ready);
+	ctx->main.ready.next	= NULL; // NULL is a special flag indicating the coroutine is suspended
+	dill_slist_init(&ctx->main.clauses);
+	dill_list_init(&ctx->main.bundle);
 #if defined DILL_CENSUS
     dill_slist_init(&ctx->census);
 #endif
@@ -443,7 +449,10 @@ void dill_waitfor(struct dill_clause *cl, int id,
 int dill_wait(void)  {
     struct dill_ctx_cr *ctx = &dill_getctx->cr;
     /* Store the context of the current coroutine, if any. */
+
+//	printf("SET: %d %016llx %016llx\n", ctx->r->id, ctx->r, ctx->r->ctx[0].__jb[7]);
     if(dill_setjmp(ctx->r->ctx)) {
+//	printf("SET-R: %d %016llx %016llx\n", ctx->r->id, ctx->r, ctx->r->ctx[0].__jb[7]);
         /* We get here once the coroutine is resumed. */
         dill_slist_init(&ctx->r->clauses);
         errno = ctx->r->err;
@@ -478,19 +487,26 @@ int dill_wait(void)  {
             if(timeout != 0) nw = dill_now();
             if(dill_slow(fired < 0)) continue;
             /* Fire all expired timers. */
+
+//if (fired)				printf("FIRED: %d\n", fired);
             if(!dill_rbtree_empty(&ctx->timers)) {
                 while(!dill_rbtree_empty(&ctx->timers)) {
                     struct dill_tmclause *tmcl = dill_cont(
                         dill_rbtree_first(&ctx->timers),
                         struct dill_tmclause, item);
-                    if(tmcl->item.val > nw)
+                    if(tmcl->item.val > nw) {
+//								printf("BREAK\n");
                         break;
+							}
+//							printf("TRIGGER: %d\n", dill_qlist_empty(&ctx->ready));
                     dill_trigger(&tmcl->cl, ETIMEDOUT);
+//							printf("TRIXXER: %d\n", dill_qlist_empty(&ctx->ready));
                     fired = 1;
                 }
             }
             /* Never retry the poll when in non-blocking mode. */
-            if(!block || fired)
+//				printf("%d %d\n", !block, fired);
+            if(!block || (fired && !dill_qlist_empty(&ctx->ready)))
                 break;
             /* If the timeout was hit but there were no expired timers,
                do the poll again. It can happen if the timers were canceled
@@ -498,6 +514,7 @@ int dill_wait(void)  {
         }
         ctx->last_poll = nw;
     }
+
     /* There's a coroutine ready to be executed so jump to it. */
     struct dill_slist *it = dill_qlist_pop(&ctx->ready);
     it->next = NULL;
@@ -505,6 +522,11 @@ int dill_wait(void)  {
     /* dill_longjmp has to be at the end of a function body, otherwise stack
        unwinding information will be trimmed if a crash occurs in this
        function. */
+
+//	printf("LONG: %d %016llx %016llx\n", ctx->r->id, ctx->r, ctx->r->ctx[0].__jb[7]);
+
+//	printf("END: %d %d\n", !dill_qlist_empty(&ctx->ready), &ctx->ready != ctx->r);
+
     dill_longjmp(ctx->r->ctx);
     return 0;
 }
@@ -516,7 +538,10 @@ static void dill_docancel(struct dill_cr *cr, int id, int err) {
     struct dill_slist *it;
     for(it = dill_slist_next(&cr->clauses); it != &cr->clauses; it = dill_slist_next(it)) {
         struct dill_clause *cl = dill_cont(it, struct dill_clause, item);
-        if(cl->cancel) cl->cancel(cl);
+        if(cl->cancel) {
+//				printf("CANCEL: %016llx\n", cl->cancel);
+				cl->cancel(cl);
+			}
     }
     /* Schedule the newly unblocked coroutine for execution. */
     dill_resume(cr, id, err);
